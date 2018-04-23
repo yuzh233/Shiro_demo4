@@ -107,8 +107,33 @@
 【SessionDao】：
     集群/分布式时会用到，不同的服务器空用一个Session的问题，后面学完Redis noSql型数据库再做记录。
     需要配置Session ID 生成器、Session DAO 、会话管理器，并在SecurityManager中引用 SessionManager属性。
+
+    一个问题，配置了sessionManager Realm缓存不起作用？！！
     2018-4-23
 
 
+
 【缓存】：
-    
+    Shiro 内部相应的组件（DefaultSecurityManager）会自动检测相应的对象（如Realm）是否实现了CacheManagerAware 并自动注入相应的
+    CacheManager。Realm继承了AuthorizingRealm也就实现了CacheManagerAware。
+
+    一.Realm缓存
+        程序在第一次访问资源的时候加载授权信息并放入到缓存，第二次访问的时候直接从缓存读取。
+        1.添加Jar包:ehcache-core.jar、shiro-ehcache.jar
+        2.配置cacheManager，引入shiro-ehcache.xml
+        3.注入到securityManager
+        清除缓存的方法：
+            Realm.clearCache(principals);
+
+    二.Session缓存
+        一般用 Redis 做Session缓存...
+
+【记住我】：
+    注意：认证和记住我只能选择一个。subject.isAuthenticated()==true，则subject.isRemembered()==false；反之一样
+    1.在跳转到某个页面的控制器中 设置 token.setRememberMe(true);
+    2.securityManager 中配置
+        <property name="rememberMeManager.cookie.maxAge" value="20"></property>
+        也可以实现自己的 RemenberManager
+    烦人的问题：火狐浏览器貌似需要设置什么东西，记住我每次都失效，搞得我以为配置有问题折磨了半天！桑心。。
+
+

@@ -9,6 +9,7 @@
          user.home - User's home directory
          user.dir - User's current working directory
          java.io.tmpdir - Default temp file path -->
+    <!-- 缓存数据持久化目录 -->
     <diskStore path="java.io.tmpdir"/>
 
     <!-- 授权时的缓存策略 -->

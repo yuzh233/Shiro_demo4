@@ -16,8 +16,24 @@
                                 expression="org.springframework.web.bind.annotation.ControllerAdvice"></context:exclude-filter>
     </context:component-scan>
 
+    <!-- 创建数据源 -->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource" destroy-method="close">
+        <property name="jdbcUrl"
+                  value="jdbc:mysql://localhost:3306/mybatis?useUnicode=true&amp;characterEncoding=UTF-8"></property>
+        <property name="driverClass" value="com.mysql.jdbc.Driver"></property>
+        <property name="user" value="root"></property>
+        <property name="password" value="admin"></property>
+        <property name="initialPoolSize" value="5"></property>
+        <property name="minPoolSize" value="3"></property>
+        <property name="maxPoolSize" value="20"></property>
+        <property name="acquireIncrement" value="3"></property>
+        <property name="maxIdleTime" value="1800"></property>
+    </bean>
+
     <!-- jdbc Template -->
-    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate"></bean>
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
 
     <!-- Spring 集成 Shiro -->
     <import resource="classpath:shiro.xml"></import>

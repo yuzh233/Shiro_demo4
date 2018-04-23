@@ -6,6 +6,7 @@
 
     <!-- 1. 配置 SecurityManager -->
     <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <!-- 注入缓存管理器 -->
         <property name="cacheManager" ref="cacheManager"/>
         <!-- 认证对象，里面指定认证策略，也可以指定 Realms  -->
         <property name="authenticator" ref="authenticator"></property>
@@ -19,40 +20,19 @@
                 <ref bean="scendLoginRealm"></ref>
             </list>
         </property>
-        <!-- 如果配置了 Sessoin 的会话管理... -->
-        <property name="sessionManager" ref="sessionManager"></property>
+        <!-- 对 Session 的Dao操作 ... -->
+        <!--<property name="sessionManager" ref="sessionManager"></property>-->
+        <!-- rememberMe -->
+        <property name="rememberMeManager" ref="rememberMeManager"></property>
+        <!--<property name="rememberMeManager.cookie.maxAge" value="10"></property>-->
     </bean>
 
     <!--
     2. 配置 CacheManager.
     2.1 需要加入 ehcache 的 jar 包及配置文件.
-    如果需要配置 session 会话管理，需要配置  Session ID 生成器、Session DAO. 、会话管理器，并在SecurityManager中引用 SessionManager
     -->
     <bean id="cacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
         <property name="cacheManagerConfigFile" value="classpath:ehcache.xml"/>
-    </bean>
-    <!-- Session ID 生成器-->
-    <bean id="sessionIdGenerator" class="org.apache.shiro.session.mgt.eis.JavaUuidSessionIdGenerator"/>
-    <!-- Session DAO. 继承 EnterpriseCacheSessionDAO -->
-    <bean id="sessionDAO" class="com.zyu.shiro.utils.MySessionDao">
-        <property name="activeSessionsCacheName" value="shiro-activeSessionCache"/>
-        <property name="sessionIdGenerator" ref="sessionIdGenerator"/>
-    </bean>
-    <!-- 会话管理器-->
-    <bean id="sessionManager" class="org.apache.shiro.session.mgt.DefaultSessionManager">
-        <property name="globalSessionTimeout" value="1800000"/>
-        <property name="deleteInvalidSessions" value="true"/>
-        <property name="sessionValidationSchedulerEnabled" value="true"/>
-        <property name="sessionDAO" ref="sessionDAO"/>
-    </bean>
-
-    <!-- 认证对象 -->
-    <bean id="authenticator" class="org.apache.shiro.authc.pam.ModularRealmAuthenticator">
-        <!-- 认证策略 -->
-        <property name="authenticationStrategy">
-            <!-- 只要有一个 Realm 验证成功即可，返回所有的 Realm 验证成功的信息 -->
-            <bean class="org.apache.shiro.authc.pam.AtLeastOneSuccessfulStrategy"></bean>
-        </property>
     </bean>
 
     <!--
@@ -81,7 +61,14 @@
             </bean>
         </property>
     </bean>
-
+    <!-- 认证对象 -->
+    <bean id="authenticator" class="org.apache.shiro.authc.pam.ModularRealmAuthenticator">
+        <!-- 认证策略 -->
+        <property name="authenticationStrategy">
+            <!-- 只要有一个 Realm 验证成功即可，返回所有的 Realm 验证成功的信息 -->
+            <bean class="org.apache.shiro.authc.pam.AtLeastOneSuccessfulStrategy"></bean>
+        </property>
+    </bean>
 
     <!--
     4. 配置 LifecycleBeanPostProcessor. 可以自动的来调用配置在 Spring IOC 容器中 shiro bean 的生命周期方法.
@@ -93,13 +80,13 @@
     注意：如果下面的配置放在这里，handler 的 Shiro 注解会失效，因为spring.xml不扫描handler，所以需要把以下配置放在spring-mvc.xml中
          如果把整个shiro.xml 放在 spring-mvc.xml中，那么web中配置的 ShiroFilter 会找不到。
     -->
-<!--
-    <bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"
-          depends-on="lifecycleBeanPostProcessor"/>
-    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
-        <property name="securityManager" ref="securityManager"/>
-    </bean>
--->
+    <!--
+        <bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"
+              depends-on="lifecycleBeanPostProcessor"/>
+        <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+            <property name="securityManager" ref="securityManager"/>
+        </bean>
+    -->
 
     <!--
     6. 配置 ShiroFilter.
@@ -121,23 +108,52 @@
             3). logout 登出.
             4). roles 角色过滤器
         -->
-
         <!-- 把资源和权限动态的读取，不写在配置文件中 -->
         <property name="filterChainDefinitionMap" ref="filterChainDefinitionMap"></property>
-       <!-- <property name="filterChainDefinitions">
-            <value>
-                /login.jsp = anon
-                /user/login = anon &lt;!&ndash; 登陆action也需要能被匿名访问 &ndash;&gt;
-                /user/logout = logout
+   <!--      <property name="filterChainDefinitions">
+             <value>
+                 /login.jsp = anon
+                 /user/login = anon &lt;!&ndash; 登陆action也需要能被匿名访问 &ndash;&gt;
+                 /user/logout = logout
 
-                /admin.jsp = roles[admin] &lt;!&ndash; 这个页面需要角色为 admin 的用户才能访问 &ndash;&gt;
-                /user.jsp = roles[user] &lt;!&ndash; 这个页面需要角色为 user 的用户才能访问 &ndash;&gt;
-                /** = authc
-            </value>
-        </property>-->
+                 /admin.jsp = roles[admin] &lt;!&ndash; 这个页面需要角色为 admin 的用户才能访问 &ndash;&gt;
+                 /user.jsp = roles[user] &lt;!&ndash; 这个页面需要角色为 user 的用户才能访问 &ndash;&gt;
+                 /** = authc
+             </value>
+         </property>-->
     </bean>
 
     <!-- 工厂实例创建bean，调用这个方法返回一个 map -->
-    <bean id="filterChainDefinitionMap" factory-bean="filterChainDefinitionMapBuilder" factory-method="buildFilterChainDefinitionMap"></bean>
+    <bean id="filterChainDefinitionMap" factory-bean="filterChainDefinitionMapBuilder"
+          factory-method="buildFilterChainDefinitionMap"></bean>
+
+    <!-- 如果需要对 sessionDao 操作，需要配置  Session ID 生成器、Session DAO. 、会话管理器，并在SecurityManager中引用 SessionManager -->
+    <!-- Session ID 生成器-->
+    <bean id="sessionIdGenerator" class="org.apache.shiro.session.mgt.eis.JavaUuidSessionIdGenerator"/>
+
+    <!-- Session DAO. 继承 EnterpriseCacheSessionDAO -->
+    <bean id="sessionDAO" class="com.zyu.shiro.utils.MySessionDao">
+        <property name="activeSessionsCacheName" value="shiro-activeSessionCache"/>
+        <property name="sessionIdGenerator" ref="sessionIdGenerator"/>
+    </bean>
+
+    <!-- 会话管理器-->
+    <bean id="sessionManager" class="org.apache.shiro.session.mgt.DefaultSessionManager">
+        <property name="globalSessionTimeout" value="1800000"/>
+        <property name="deleteInvalidSessions" value="true"/>
+        <property name="sessionValidationSchedulerEnabled" value="true"/>
+        <property name="sessionDAO" ref="sessionDAO"/>
+    </bean>
+
+    <!-- rememberMe管理器-->
+    <bean id="rememberMeManager" class="org.apache.shiro.web.mgt.CookieRememberMeManager">
+        <property name="cipherKey" value="#{T(org.apache.shiro.codec.Base64).decode('4AvVhmFLUs0KTA3Kprsdag==')}"/>
+        <property name="cookie" ref="rememberMeCookie"/>
+    </bean>
+    <bean id="rememberMeCookie" class="org.apache.shiro.web.servlet.SimpleCookie">
+        <constructor-arg value="rememberMe"/>
+        <property name="httpOnly" value="true"/>
+        <property name="maxAge" value="20"/> <!-- 20s 认证过期 -->
+    </bean>
 
 </beans>

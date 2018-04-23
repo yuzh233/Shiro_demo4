@@ -29,9 +29,10 @@ public class FilterChainDefinitionMapBuilder {
         roles.put("/login.jsp","anon");
         roles.put("/user/login","anon");
         roles.put("/user/logout","logout");
-        roles.put("/admin.jsp","roles[admin]");
-        roles.put("/user.jsp","roles[user]");
-        roles.put("/**","authc");
+        roles.put("/admin.jsp","authc,roles[admin]"); // 认证且有admin权限
+        roles.put("/user.jsp","roles[user]"); // 有user权限
+        roles.put("/list.jsp","user"); //已经登陆/记住我的用户可以访问
+        roles.put("/**","authc");   // 必须登陆才能访问
         return roles;
     }
 }

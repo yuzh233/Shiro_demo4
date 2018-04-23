@@ -42,6 +42,7 @@ public class UserHandler {
         if (!subject.isAuthenticated()) {
             //没有登陆,则把用户名和密码封装为 UsernamePasswordToken 对象
             UsernamePasswordToken token = new UsernamePasswordToken(username, password);
+            // 访问list.jsp的用户被记住，下次访问无需登陆。
             token.setRememberMe(true);
             try {
                 //执行登录，调用自定义的 Realm 实现类
