@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+    	 http://www.springframework.org/schema/beans/spring-beans.xsd
+     	 http://www.springframework.org/schema/context
+         http://www.springframework.org/schema/context/spring-context.xsd
+     	 http://www.springframework.org/schema/mvc
+     	 http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <context:component-scan base-package="com.zyu.shiro.handler"></context:component-scan>
+
+    <mvc:annotation-driven>
+        <!-- 全局设定响应内容为UTF-8编码 -->
+        <mvc:message-converters register-defaults="true">
+            <bean class="org.springframework.http.converter.StringHttpMessageConverter">
+                <constructor-arg value="UTF-8"></constructor-arg>
+            </bean>
+        </mvc:message-converters>
+    </mvc:annotation-driven>
+
+    <mvc:default-servlet-handler></mvc:default-servlet-handler>
+    <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <property name="prefix" value="/"></property>
+        <property name="suffix" value=".jsp"></property>
+    </bean>
+
+    <!-- 启用handler中使用 shiro 的注解. 但必须在配置了 LifecycleBeanPostProcessor 之后才可以使用.（在 spring.xml->shiro.xml已配置） -->
+    <bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"
+          depends-on="lifecycleBeanPostProcessor"/>
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+        <property name="securityManager" ref="securityManager"/>
+    </bean>
+</beans>

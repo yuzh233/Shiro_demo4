@@ -1,0 +1,114 @@
+
+
+【认证过程 —— handler处理的步骤】：
+1. 获取当前的 Subject. 调用 SecurityUtils.getSubject();
+2. 测试当前的用户是否已经被认证. 即是否已经登录. 调用 Subject 的 isAuthenticated()
+3. 若没有被认证, 则把用户名和密码封装为 UsernamePasswordToken 对象
+    1). 创建一个表单页面
+    2). 把请求提交到 SpringMVC 的 Handler
+    3). 获取用户名和密码.
+4. 执行登录: 调用 Subject 的 login(AuthenticationToken) 方法.
+5. 自定义 Realm 的方法, 从数据库中获取对应的记录, 返回给 Shiro.
+    1). 实际上需要继承 org.apache.shiro.realm.AuthenticatingRealm 类
+    2). 实现 doGetAuthenticationInfo(AuthenticationToken) 方法.
+6. 由 shiro 完成对密码的比对.
+
+1. 授权需要继承 AuthorizingRealm 类, 并实现其 doGetAuthorizationInfo 方法
+2. AuthorizingRealm 类继承自 AuthenticatingRealm, 但没有实现 AuthenticatingRealm 中的 doGetAuthenticationInfo, 所以认证和授权只需要继承 AuthorizingRealm 就可以了. 同时实现他的两个抽象方法.
+
+【MD5加密】：
+1. 如何把一个字符串加密为 MD5
+2. 配置文件中替换当前 Realm 的 credentialsMatcher 属性. 直接使用 HashedCredentialsMatcher 对象, 并设置加密算法即可.
+    <bean id="loginRealm" class="com.zyu.shiro.realms.LoginRealm">
+        <!-- 密码凭证适配器，进行密码加密 -->
+        <property name="credentialsMatcher">
+            <bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+                <!-- 字符串加密成 MD5 -->
+                <property name="hashAlgorithmName" value="MD5"></property>
+                <!-- 加密 1024 次 -->
+                <property name="hashIterations" value="1024"></property>
+            </bean>
+        </property>
+    </bean>
+
+【MD5 盐值加密】：
+1. 为什么使用 MD5 盐值加密:
+    当多个用户密码都是123456时，使用MD5加密，就算加密 n 次，加密之后的密码还是一样的。 盐值加密是在这个密码生成过程中添加一些 "佐料" ，
+    使得就算源密码一样加密之后的密码是唯一的。
+2. 如何做到:
+    1). 在 doGetAuthenticationInfo 方法返回值创建 SimpleAuthenticationInfo 对象的时候, 需要使用
+        SimpleAuthenticationInfo(principal, credentials, credentialsSalt, realmName) 构造器
+    2). 使用 ByteSource.Util.bytes() 来计算盐值.
+    3). 盐值需要唯一: 一般使用随机字符串或 user id
+    4). 使用 new SimpleHash(hashAlgorithmName, credentials, salt, hashIterations); 来计算盐值加密后的密码的值.
+
+【密码的比对】:
+    通过 AuthenticatingRealm 的 credentialsMatcher 属性来进行的密码的比对!
+    /**
+     * @Param  token 包含了前台输入的账户和密码
+     * @Param authenticationInfo 包含了数据库查出来的密码，和盐值、用户信息等
+     *  Shiro 通过调用 doCredentialsMatch(token, authenticationInfo) 进行密码比对，该方法通过对 token 对象中的密码加密之后的密码
+     *   和authenticationInfo中的密码对比，返回对比结果。
+     */
+    if(authenticationInfo!=null) {
+        boolean result = getCredentialsMatcher().doCredentialsMatch(token, authenticationInfo);
+        System.out.println("查看对比的结果" + result);
+    }
+
+
+【多个Realm的验证】：
+    1.再新建一个继承 AuthenticatingRealm 接口的类，写认证逻辑
+    2.再配置一个 凭证适配器
+        <bean id="scendLoginRealm" class="com.zyu.shiro.realms.ScendLoginRealm">
+                <!-- 密码凭证适配器，进行密码加密 -->
+                <property name="credentialsMatcher">
+                    <bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+                        <!-- 使用 SHA1 算法加密密码 -->
+                        <property name="hashAlgorithmName" value="SHA1"></property>
+                        <!-- 加密 1024 次 -->
+                        <property name="hashIterations" value="1024"></property>
+                    </bean>
+                </property>
+        </bean>
+    3.配置认证策略，默认策略AtLeastOneSuccessfulStrategy： 只要有一个 Realm 验证成功即可，返回所有的 Realm 验证成功的信息
+
+
+【实现授权】：
+    1. 授权需要继承 AuthorizingRealm 类, 并实现其 doGetAuthorizationInfo 方法
+    2. AuthorizingRealm 类继承自 AuthenticatingRealm, 但没有实现 AuthenticatingRealm 中的doGetAuthenticationInfo,
+        所以认证和授权只需要继承 AuthorizingRealm 就可以了. 同时实现他的两个抽象方法.
+        认证实现 --> AuthenticationInfo() ，授权实现 --> AuthorizationInfo()
+    3. 配置文件：
+        以角色授权：
+             /admin.jsp = roles[admin] <!-- 这个页面需要角色为 admin 的用户才能访问 -->
+             /user.jsp = roles[user] <!-- 这个页面需要角色为 user 的用户才能访问 -->
+        以权限授权：
+
+【授权方式】：
+    1.编程式
+        if(subject.hasRole("admin")){
+            // TODO Something
+        }
+    2.注解式
+        @RequiresRoles("admin")
+        public void hello(){
+            // TODO Something
+        }
+    3.标签式
+        <shiro:hasRole name="admin"></shiro:hasRole>
+
+
+【会话管理】：
+    说白了就是在service层可以使用控制层的 HttpSession
+    获取方式：
+        org.apache.shiro.session.Session session = SecurityUtils.getSubject().getSession();
+
+
+【SessionDao】：
+    集群/分布式时会用到，不同的服务器空用一个Session的问题，后面学完Redis noSql型数据库再做记录。
+    需要配置Session ID 生成器、Session DAO 、会话管理器，并在SecurityManager中引用 SessionManager属性。
+    2018-4-23
+
+
+【缓存】：
+    

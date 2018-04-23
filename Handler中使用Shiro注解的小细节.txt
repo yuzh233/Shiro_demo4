@@ -1,0 +1,23 @@
+
+    在 Handler 使用 Shiro 注解时（比如 @RequiresRoles ）失效
+
+    需要在 shiro.xml 配置 LifecycleBeanPostProcessor shiro的生命周期 和 DefaultAdvisorAutoProxyCreator。
+
+    配置了之后还是失效？
+
+解决办法：
+    1.首先为了易于维护， Shiro 的配置文件最好放在 spring.xml 中，spring-mvc.xml 只放与 handler 相关的配置，spring.xml扫描除 handler
+        以外的容器，spring-mvc.xml 只扫描handler。
+    2.把配置 LifecycleBeanPostProcessor shiro的生命周期 和 DefaultAdvisorAutoProxyCreator。放在 spring-mvc.xml 中，问题解决。
+
+原因：
+    shiro.xml 和 spring.xml 整合，而spring.xml并没有扫描到 handler 的注解，所以尽管 shiro 配置了支持shiro注解，handler 看不到这个注解
+    自然失效，为什么不把 shiro.xml 和 spring-mvc.xml 整和在一起？
+
+    可以试一下，然后会报一个 ShiroFilter 未找到异常，启动失败！ ShiroFilter 是web.xml中启动 shiro 的过滤器，与 shiro.xml 中的 <bean class="ShiroFilterFactoryBean" > 的id保持一致
+    为什么找不到这个过滤器呢？这与 web 容器的加载顺序有关。。。
+
+    Web容器加载顺序ServletContext -> context-param -> listener -> filter -> servlet
+
+    可以发现，spring 是通过 listener 启动的，加载 spring.xml 时顺便加载了shiro.xml,创建了ShiroFilter过滤器。然后启动 shiro 是在 启动 spring之后，所以可以找到这个ShiroFilter
+    但是如果 shiro.xml 在 spring-mvc.xml 中，springMVC 是通过 servlet 启动，启动顺序在 Shiro 之后，所以 Shiro自然找不到 ShiroFilter！

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+    	 http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <!-- 1. 配置 SecurityManager -->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <property name="cacheManager" ref="cacheManager"/>
+        <!-- 认证对象，里面指定认证策略，也可以指定 Realms  -->
+        <property name="authenticator" ref="authenticator"></property>
+        <!-- 手动编写的认证类
+             SecurityManager 要验证用户身份，那么它需要从 Realm 获取相应的用户进行比较以确定用户身份是否合法；
+             也需要从 Realm 得到用户相应的角色/权限进行验证用户是否能进行操作 -->
+        <property name="realms">
+            <list>
+                <!-- 存在多个 Realm 会通过认证策略进行认证 -->
+                <!--<ref bean="loginRealm"></ref>-->
+                <ref bean="scendLoginRealm"></ref>
+            </list>
+        </property>
+        <!-- 如果配置了 Sessoin 的会话管理... -->
+        <property name="sessionManager" ref="sessionManager"></property>
+    </bean>
+
+    <!--
+    2. 配置 CacheManager.
+    2.1 需要加入 ehcache 的 jar 包及配置文件.
+    如果需要配置 session 会话管理，需要配置  Session ID 生成器、Session DAO. 、会话管理器，并在SecurityManager中引用 SessionManager
+    -->
+    <bean id="cacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
+        <property name="cacheManagerConfigFile" value="classpath:ehcache.xml"/>
+    </bean>
+    <!-- Session ID 生成器-->
+    <bean id="sessionIdGenerator" class="org.apache.shiro.session.mgt.eis.JavaUuidSessionIdGenerator"/>
+    <!-- Session DAO. 继承 EnterpriseCacheSessionDAO -->
+    <bean id="sessionDAO" class="com.zyu.shiro.utils.MySessionDao">
+        <property name="activeSessionsCacheName" value="shiro-activeSessionCache"/>
+        <property name="sessionIdGenerator" ref="sessionIdGenerator"/>
+    </bean>
+    <!-- 会话管理器-->
+    <bean id="sessionManager" class="org.apache.shiro.session.mgt.DefaultSessionManager">
+        <property name="globalSessionTimeout" value="1800000"/>
+        <property name="deleteInvalidSessions" value="true"/>
+        <property name="sessionValidationSchedulerEnabled" value="true"/>
+        <property name="sessionDAO" ref="sessionDAO"/>
+    </bean>
+
+    <!-- 认证对象 -->
+    <bean id="authenticator" class="org.apache.shiro.authc.pam.ModularRealmAuthenticator">
+        <!-- 认证策略 -->
+        <property name="authenticationStrategy">
+            <!-- 只要有一个 Realm 验证成功即可，返回所有的 Realm 验证成功的信息 -->
+            <bean class="org.apache.shiro.authc.pam.AtLeastOneSuccessfulStrategy"></bean>
+        </property>
+    </bean>
+
+    <!--
+        3. 配置 Realm 认证和授权类
+        3.1 直接配置实现了 org.apache.shiro.realm.Realm 接口的 bean
+    -->
+    <bean id="loginRealm" class="com.zyu.shiro.realms.LoginRealm">
+        <!-- 密码凭证适配器，进行密码加密 -->
+        <property name="credentialsMatcher">
+            <bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+                <!-- 使用 MD5 算法加密密码 -->
+                <property name="hashAlgorithmName" value="MD5"></property>
+                <!-- 加密 1024 次 -->
+                <property name="hashIterations" value="1024"></property>
+            </bean>
+        </property>
+    </bean>
+    <bean id="scendLoginRealm" class="com.zyu.shiro.realms.ScendLoginRealm">
+        <!-- 密码凭证适配器，进行密码加密 -->
+        <property name="credentialsMatcher">
+            <bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+                <!-- 使用 SHA1 算法加密密码 -->
+                <property name="hashAlgorithmName" value="SHA1"></property>
+                <!-- 加密 1024 次 -->
+                <property name="hashIterations" value="1024"></property>
+            </bean>
+        </property>
+    </bean>
+
+
+    <!--
+    4. 配置 LifecycleBeanPostProcessor. 可以自动的来调用配置在 Spring IOC 容器中 shiro bean 的生命周期方法.
+    -->
+    <bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+
+    <!--
+    5. 启用 IOC 容器中使用 shiro 的注解. 但必须在配置了 LifecycleBeanPostProcessor 之后才可以使用.
+    注意：如果下面的配置放在这里，handler 的 Shiro 注解会失效，因为spring.xml不扫描handler，所以需要把以下配置放在spring-mvc.xml中
+         如果把整个shiro.xml 放在 spring-mvc.xml中，那么web中配置的 ShiroFilter 会找不到。
+    -->
+<!--
+    <bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"
+          depends-on="lifecycleBeanPostProcessor"/>
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+        <property name="securityManager" ref="securityManager"/>
+    </bean>
+-->
+
+    <!--
+    6. 配置 ShiroFilter.
+    6.1 id 必须和 web.xml 文件中配置的 DelegatingFilterProxy 的 <filter-name> 一致.
+          若不一致, 则会抛出: NoSuchBeanDefinitionException. 因为 Shiro 会来 IOC 容器中查找和 <filter-name> 名字对应的 filter bean.
+    -->
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="securityManager"/>
+        <property name="loginUrl" value="/login.jsp"/>
+        <property name="successUrl" value="/list.jsp"/>
+        <property name="unauthorizedUrl" value="/unauthorized.jsp"/>
+
+        <!--
+            配置哪些页面需要受保护.
+            以及访问这些页面需要的权限.
+            拦截器
+            1). anon 可以被匿名访问
+            2). authc 必须认证(即登录)后才可能访问的页面.
+            3). logout 登出.
+            4). roles 角色过滤器
+        -->
+
+        <!-- 把资源和权限动态的读取，不写在配置文件中 -->
+        <property name="filterChainDefinitionMap" ref="filterChainDefinitionMap"></property>
+       <!-- <property name="filterChainDefinitions">
+            <value>
+                /login.jsp = anon
+                /user/login = anon &lt;!&ndash; 登陆action也需要能被匿名访问 &ndash;&gt;
+                /user/logout = logout
+
+                /admin.jsp = roles[admin] &lt;!&ndash; 这个页面需要角色为 admin 的用户才能访问 &ndash;&gt;
+                /user.jsp = roles[user] &lt;!&ndash; 这个页面需要角色为 user 的用户才能访问 &ndash;&gt;
+                /** = authc
+            </value>
+        </property>-->
+    </bean>
+
+    <!-- 工厂实例创建bean，调用这个方法返回一个 map -->
+    <bean id="filterChainDefinitionMap" factory-bean="filterChainDefinitionMapBuilder" factory-method="buildFilterChainDefinitionMap"></bean>
+
+</beans>
